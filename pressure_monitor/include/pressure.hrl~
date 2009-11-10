@@ -1,6 +1,0 @@
--export([loop/1,start/0,start/1]).
- -ifdef(debug).
--define(DEBUG(X),io:format("DEBUG ~p:~p ~p ~n",[?MODULE,?LINE,X])).
--else.
--define(DEBUG(X),true).
--endif.
