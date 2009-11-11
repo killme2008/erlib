@@ -10,7 +10,7 @@ test()->
     gen_tcp:send(Socket,"init:6000:true:-1:1024:1024:1\n").
 % start server at port 8000
 start()->
-    start(8000).    
+    start(8000).
 %start server at port
 start(Port)->
     socket_server:start(?MODULE,Port,?MODULE).
@@ -26,8 +26,15 @@ init(Socket)->
     ?INFO("Accept socket..."),
     inet:setopts(Socket, ?TCP_OPTS),
     {ok,[Confs]}=file:consult(config_file_path()),
+    process_flag(trap_exit,true),
     lists:foldl(fun({Host,Port},T)->
-                  [connect(Socket,Host,Port)|T] end,[],Confs).    
+                  case connect(Socket,Host,Port) of
+                     error->
+                          T;
+                     Pid ->
+                          [Pid|T]
+                  end
+                  end,[],Confs).
 % Loop with socket
 loop([],Socket)->
     ?INFO("There is no connected clients,close socket"),
@@ -39,10 +46,10 @@ loop(List,Socket)->
             try handle_request(List,Line) of
                 _ ->
                   ok
-            catch 
+            catch
                _:Why->
-                 ?ERROR("Handle request error",Why) 
-            end,           
+                 ?ERROR("Handle request error",Why)
+            end,
             loop(List,Socket);
        {tcp_closed,Socket}->
             ?INFO("Close socket"),
@@ -51,9 +58,12 @@ loop(List,Socket)->
             lists:foreach(fun(_Pid)->
                      _Pid ! closed end,List),
             gen_tcp:close(Socket);
+       {'EXIT',Pid,Reason}->
+            NewList=lists:delete(Pid,List),
+            loop(NewList,Socket);
       _->
             loop(List,Socket)
-                   
+
    end.
 
 %%internal api
@@ -62,15 +72,15 @@ connect(Msocket,Host,Port)->
     case gen_tcp:connect(Host,Port,[binary,{packet,line}]) of
         {ok,Socket} ->
                           ?INFO("Connect to " ++ Host ++ " Success"),
-	                  Pid=spawn(fun()-> dispatch(Msocket,Socket) end),
+                      Pid=spawn_link(fun()-> dispatch(Msocket,Socket) end),
                           % Change controlling process for this socket
                           gen_tcp:controlling_process(Socket,Pid),
                           Pid;
-	{error,Reason} ->
+    {error,Reason} ->
                           ?ERROR("connect error",Reason),
-	                  error
+                      error
     end.
-% loop with connected socket	    
+% loop with connected socket
 dispatch(Msocket,Socket)->
     receive
        {tcp,Socket,Bin}->
@@ -88,8 +98,8 @@ dispatch(Msocket,Socket)->
        {send,Line}->
            ?DEBUG("send " ++ binary_to_list(Line)),
            gen_tcp:send(Socket,Line),
-	   dispatch(Msocket,Socket);
-	Any ->
+       dispatch(Msocket,Socket);
+    Any ->
            ?ERROR("Unknow command",Any)
     end.
 
@@ -104,10 +114,10 @@ handle_request(List,Line = <<Begin:3/binary,_/binary>>)->
             ?DEBUG("init,send to all connections"),
             all_send(List,Line);
         <<"end">> ->
-            all_send(List,Line);             
-	<<"sen">> ->
+            all_send(List,Line);
+    <<"sen">> ->
             random_send(List,Line);
-	Any ->
+    Any ->
             ?ERROR("Unknown command",Any)
     end;
 handle_request(_,Any)->
@@ -115,7 +125,7 @@ handle_request(_,Any)->
 %send message to all connected clients.
 all_send(List,Line)->
     lists:foreach(fun(Pid)->
-			  Pid ! {send,Line} end,List).
+              Pid ! {send,Line} end,List).
 %random send message to one client.
 random_send(List,Line)->
      Pid=lists:nth(random:uniform(length(List)),List),
