@@ -33,7 +33,7 @@ loop(List,Socket)->
      receive
        {tcp,Socket,Line}->
             %?DEBUG(<<"Recv:">> ++ Line),
-            try handle_request(List,Line) of
+            try handle_request(Socket,List,Line) of
                 _ ->
                   ok
             catch 
@@ -95,22 +95,25 @@ config_file_path()->
     Dir = filename:dirname(code:which(?MODULE)),
     filename:join(Dir, "../priv/client_config").
 %handle request from loadrunner
-handle_request(List,Line = <<Begin:3/binary,_/binary>>)->
+handle_request(Socket,List,Line = <<Begin:3/binary,_/binary>>)->
     case Begin of
         <<"ini">> ->
             ?DEBUG("init,send to all connections"),
-            all_send(List,Line);
+            all_send(Socket,List,Line);
         <<"end">> ->
-            all_send(List,Line);             
+            all_send(Socket,List,Line);             
 	<<"sen">> ->
             random_send(List,Line);
 	Any ->
             ?ERROR("Unknown command",Any)
     end;
-handle_request(_,Any)->
+handle_request(_,_,Any)->
     ?ERROR("Unknow command",Any).
 %send message to all connected clients.
-all_send(List,Line)->
+all_send(Socket,[],_)->
+    %There is no node connected,close socket
+    gen_tcp:close(Socket);
+all_send(_,List,Line)->
     lists:foreach(fun(Pid)->
 			  Pid ! {send,Line} end,List).
 %random send message to one client.
