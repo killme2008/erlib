@@ -84,7 +84,7 @@ connect(Msocket,Host,Port)->
 dispatch(Msocket,Socket)->
     receive
        {tcp,Socket,Bin}->
-           ?DEBUG("recv response"),
+           ?DEBUG2("recv response",Bin),
            %response to main socket
            gen_tcp:send(Msocket,Bin),
            dispatch(Msocket,Socket);
@@ -96,7 +96,7 @@ dispatch(Msocket,Socket)->
            gen_tcp:close(Socket),
            ok;
        {send,Line}->
-           ?DEBUG("send " ++ binary_to_list(Line)),
+           ?DEBUG2("send ",Line),
            gen_tcp:send(Socket,Line),
        dispatch(Msocket,Socket);
     Any ->
@@ -118,7 +118,7 @@ handle_request(List,Line = <<Begin:3/binary,_/binary>>)->
     <<"sen">> ->
             random_send(List,Line);
     Any ->
-            ?ERROR("Unknown command",Any)
+            ?ERROR("Unknown command",Line)
     end;
 handle_request(_,Any)->
     ?ERROR("Unknow command",Any).
