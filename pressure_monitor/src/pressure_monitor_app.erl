@@ -7,7 +7,7 @@
 %%% @end
 %%%
 %%%----------------------------------------------------------------------
--module(monitor_app).
+-module(pressure_monitor_app).
 -author('boyan@taobao.com').
 -vsn('0.1').
 -include("debug.hrl").
@@ -24,16 +24,16 @@
 -spec start() -> 'ok' | {'error', any()}.
 start() ->
     ensure_apps(),
-    application:start(monitor).
+    application:start(pressure_monitor).
 %% @doc stop the application from the erl shell
 stop()->
-    application:stop(monitor).
+    application:stop(pressure_monitor).
 %% @doc the application start callback
 -spec start(Type :: atom(), Args :: any()) ->
     'ignore' | {'ok', pid()} | {'error', any()}.
-start(_Type, _Args) ->
-    supervisor:start_link({local, monitor_sup}, ?MODULE, []).
-
+start(_Type, Args) ->
+    error_logger:info_msg("starting pressure monitor server app"),
+    supervisor:start_link({local, pressure_monitor_sup}, ?MODULE, Args).
 %% @doc the application  stop callback
 stop(_State) ->
     ok.
@@ -41,13 +41,10 @@ stop(_State) ->
 %% @doc supervisor callback
 init(_Args) ->
     Stragegy = {one_for_one, 10, 10},
-
-    ModMonitor = {monitor_server, {monitor_server, start, []},
-                permanent, 2000, worker, [monitor_server]},
     {ok, {Stragegy, [
-                    ModMonitor
-                    ]}
-    }.
+                    {monitor_server, {monitor_server, start, _Args},
+                permanent, brutal_kill, worker, [monitor_server]}
+                     ]}}.
 
 %%
 %% internal API

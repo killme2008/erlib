@@ -1,12 +1,13 @@
-{application, monitor,
+{application, pressure_monitor,
     [{description, "Pressure Monitor server App"},
      {vsn, "0.1"},
      {modules, [
-                monitor_app,
-                monitor_server
+                pressure_monitor_app,
+                monitor_server,
+                socket_server
                 ]},
      {registered, [monitor_server]},
      {applications, [kernel, stdlib, sasl]},
-     {mod, {monitor_app, []}}
+     {mod, {pressure_monitor_app, [8001]}}
     ]
 }.
