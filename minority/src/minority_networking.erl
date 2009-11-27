@@ -58,7 +58,7 @@ start_client(Sock) ->
     ok = controlling_process(Sock, Child),
     Child ! {go, Sock},
     Child.
-%%工具类
+%%工具方法
 controlling_process(Sock, Pid) when is_port(Sock) ->
     gen_tcp:controlling_process(Sock, Pid).
 
