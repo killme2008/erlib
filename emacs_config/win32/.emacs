@@ -1,4 +1,4 @@
-;;Õ®”√≈‰÷√
+;;ÈÄöÁî®ÈÖçÁΩÆ
 (set-language-environment 'Chinese-GB)
 (set-keyboard-coding-system 'euc-cn)
 (set-clipboard-coding-system 'euc-cn)
@@ -23,8 +23,20 @@
    (error
     (message "Can't load xxx-mode %s" (cdr err))))
 (setq-default make-backup-files nil)
-
-
+;;maximize
+(defun emacs-maximize ()
+  "Maximize emacs window in windows os"
+  (interactive)
+  (w32-send-sys-command 61488))        ; WM_SYSCOMMAND #xf030 maximize
+(defun emacs-minimize ()
+  "Minimize emacs window in windows os"
+  (interactive)
+  (w32-send-sys-command #xf020))    ; #xf020 minimize
+(defun emacs-normal ()
+  "Normal emacs window in windows os"
+  (interactive)
+  (w32-send-sys-command #xf120))    ; #xf120 normalimize
+(emacs-maximize)
 
 (setq load-path(cons "D:/erlang_workspace/emacs-22.3-bin-i386/emacs-22.3/extension" load-path))
 (setq load-path(cons "D:/erlang_workspace/emacs-22.3-bin-i386/emacs-22.3/extension/color-theme-6.6.0" load-path))
@@ -73,3 +85,5 @@
      ;; add some Distel bindings to the Erlang shell
      (dolist (spec distel-shell-keys)
        (define-key erlang-shell-mode-map (car spec) (cadr spec)))))
+
+(split-window-horizontally 120)
