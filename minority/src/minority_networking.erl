@@ -14,6 +14,7 @@
 
 -export([start_client/1]).
 
+-export([check_tcp_listener_address/3,peername/1,sockname/1,async_recv/3,close/1,send/2]).
 start() ->
     {ok,_} = supervisor:start_child(
                minority_sup,
@@ -61,7 +62,8 @@ start_client(Sock) ->
 %%工具方法
 controlling_process(Sock, Pid) when is_port(Sock) ->
     gen_tcp:controlling_process(Sock, Pid).
-
+peername(Sock) when is_port(Sock) ->
+    inet:peername(Sock).
 check_tcp_listener_address(NamePrefix, Host, Port) ->
     IPAddress =
         case inet:getaddr(Host, inet) of
@@ -78,3 +80,21 @@ check_tcp_listener_address(NamePrefix, Host, Port) ->
     end,
     Name = minority_misc:tcp_name(NamePrefix, IPAddress, Port),
     {IPAddress, Name}.
+
+async_recv(Sock, Length, infinity) when is_port(Sock) ->
+    prim_inet:async_recv(Sock, Length, -1);
+
+async_recv(Sock, Length, Timeout) when is_port(Sock) ->
+    prim_inet:async_recv(Sock, Length, Timeout).
+
+close(Sock) when is_port(Sock) ->
+    gen_tcp:close(Sock).
+
+getstat(Sock, Stats) when is_port(Sock) ->
+    inet:getstat(Sock, Stats).
+
+send(Sock, Data) when is_port(Sock) ->
+    gen_tcp:send(Sock, Data).
+
+sockname(Sock) when is_port(Sock) ->
+    inet:sockname(Sock).
