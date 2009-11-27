@@ -1,0 +1,9 @@
+-ifdef(debug).
+-define(DEBUG(X),io:format("DEBUG ~p:~p ~p ~n",[?MODULE,?LINE,X])).
+-define(DEBUG2(X,P),io:format("DEBUG ~p:~p ~p ~p ~n",[?MODULE,?LINE,X,P])).
+-else.
+-define(DEBUG(X),true).
+-define(DEBUG2(X,P),true).
+-endif.
+-define(ERROR(Msg,Why),io:format("ERROR ~p:~p ~p ~p ~n",[?MODULE,?LINE,Msg,Why])).
+-define(INFO(X),io:format("INFO ~p:~p ~p ~n",[?MODULE,?LINE,X])).
