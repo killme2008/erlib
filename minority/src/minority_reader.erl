@@ -3,7 +3,7 @@
 -export([start_link/0]).
 -export([init/1]).
 
--record(command,{opcode,data_id_len,data_num_id_len,body_len,data_id,data_num_id,body}).
+-record(command,{opcode,data_id_len,data_num_id_len,body_len,data_id,data_num_id,body,persistence,notify,reserved}).
 -record(v1, {sock, callback, recv_ref, connection_state,current_cmd}).
 
 -define(HEADER_LEN,16).
@@ -93,29 +93,55 @@ mainloop(Parent, Deb, State = #v1{sock= Sock, recv_ref = Ref}) ->
             %% internal error -> something worth dying for
             exit({unexpected_message, Other})
     end.
-
-handle_input(header,<<16#80:8,OpCode:8,DataIdLen:16,DataNumIdLen:16,_Reserved1:16,_Reserved2:32,TotalBodyLen:32>>,
+%%Process header
+handle_input(header,<<16#80:8,OpCode:8,DataIdLen:16,DataNumIdLen:16,Persistence:8,Notify:8,Reserved:32,TotalBodyLen:32>>,
                    State) ->
-    BodyLen=TotalBodyLen-DataIdLen-DataNumIdLen,
-    Cmd=#command{opcode=OpCode,data_id_len=DataIdLen,data_num_id_len=DataNumIdLen,body_len=BodyLen},
-    {State#v1{current_cmd=Cmd},body,TotalBodyLen};
+    Cmd=#command{opcode=OpCode,data_id_len=DataIdLen,data_num_id_len=DataNumIdLen,body_len=0,persistence=Persistence,
+                 notify=Notify,reserved=Reserved},
+    case TotalBodyLen of
+         0 ->
+             handle_msg(Cmd),
+             {State#v1{current_cmd=none},header,?HEADER_LEN};
+	 Value when Value >0 andalso DataIdLen >=0 andalso DataNumIdLen >= 0 ->
+             BodyLen=Value-DataNumIdLen-DataIdLen,
+             {State#v1{current_cmd=Cmd#command{body_len=BodyLen}},body,TotalBodyLen};   
+	  _Any ->
+             exit({error_command})
+    end;
+
+handle_input(header,Data,State)->
+    exit({header,Data,State});
+    
+%%Process body
 handle_input(body, Data, State=#v1{current_cmd=#command{data_id_len=DataIdLen,data_num_id_len=DataNumIdLen,body_len=BodyLen}} )-> 
     <<DataId:DataIdLen/binary,DataNumId:DataNumIdLen/binary,Body:BodyLen/binary>> = Data,
     Cmd=State#v1.current_cmd,
     {ok,Response}=handle_msg(Cmd#command{data_id=DataId,data_num_id=DataNumId,body=Body}),
     {State#v1{current_cmd=none},header,?HEADER_LEN};
+handle_input(body,Data,State)->
+   exit({header,Data,State});
+
 handle_input(CallBack,Data,State) ->
     exit({CallBack,Data}).
 
 
-handle_msg(#command{opcode=OpCode,data_id= DataId,data_num_id= DataNumId,body=Body})->
-    case OpCode of
-       16#00 ->
-            io:format("store ~p ~p value:~p ~n",[binary_to_list(DataId),binary_to_list(DataNumId),Body]),
-	    {ok,response};
-       16#01 ->
-    end.
-
+handle_msg(#command{opcode=16#01,data_id= DataId,data_num_id= DataNumId,body=Body,persistence=Persistence,notify=Notify})->
+    io:format("store ~p ~p value:~p persistence:~p,notify:~p ~n",[binary_to_list(DataId),binary_to_list(DataNumId),Body,Persistence,Notify]),
+    {ok,response};
+handle_msg(#command{opcode=16#00,data_id= DataId,data_num_id=DataNumId}) ->
+    io:format("get command ~p ~p ~n",[DataId,DataNumId]),
+    {ok,response};
+handle_msg(#command{opcode=16#03}) ->
+    io:format("heart beat~n"),
+    {ok,response};
+handle_msg(#command{opcode=16#04,data_id =DataId}) ->
+    io:format("version ~p~n",[DataId]),
+    {ok,response};
+handle_msg(#command{opcode=16#05,data_id=DataId,data_num_id_len=DataNumIdLen,data_num_id=DataNumId}) ->
+    io:format("delete command ~p ~p~n",[DataId,DataNumId]),
+    {ok,response};
+handle_msg(Cmd)->
+    exit({unknow_command,Cmd}).
 handle_dependent_exit(Pid, Reason, State)->
     ok.
 

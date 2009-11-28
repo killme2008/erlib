@@ -14,15 +14,23 @@ Request header
        +---------------+---------------+---------------+---------------+
       0| Magic         | Opcode        | dataId length                 |
        +---------------+---------------+---------------+---------------+
-      4| datanumId length              | Reserved                      |
+      4| datanumId length              | persistence   | notify        |
        +---------------+---------------+---------------+---------------+
       8| Reserved                                                      |
        +---------------+---------------+---------------+---------------+
-     12| body  Length                                                  |
+     12|         total body length                                     |        |
        +---------------+---------------+---------------+---------------+
      16| body                                                          |
-       |                                                               |
        +---------------+---------------+---------------+---------------+
+   Magic                magic number for request 
+   OpCode               request op code          
+   DataId Length        Data Id length           
+   DataNumId length     Datanum id length
+   persistence          whether to store persistence,0x00(false) or 0x01 (true)
+   notify               whether to notify immediately ,0x00(false) or 0x01 (true)
+   Reserved             Reserved 
+   total body length    DataIdLength+DataNumIdLength+BodyLength      
+   body                 DataId+DataNumId+Body                        
 
   Response header
 
@@ -36,9 +44,13 @@ Request header
        +---------------+---------------+---------------+---------------+
       8| Reserved                                                      |
        +---------------+---------------+---------------+---------------+
-     12| body length                                                   |
+     12| version                                                       |
        +---------------+---------------+---------------+---------------+
-     16| body                                                          |
+       |                                                               |
+     20+---------------+---------------+---------------+---------------+
+       | total body length                                             |
+       +---------------+---------------+---------------+---------------+
+       | body                                                          |
        |                                                               |
        +---------------+---------------+---------------+---------------+
 
@@ -57,17 +69,20 @@ Request header
 
      opcode:
      
-     0x00 get
+     0x00 get  
      0x01 set
      0x02 notify
      0x03 heartbeat
+     0x04 version
+     0x05 delete
 
      status:
 
    0x0000  No error
    0x0001  store fail
-   0x0002  Key not found
-   0x0003  Invalid arguments
+   0x0002  dataid not found
+   0x0003  datanumid not found
+   0x0004  Invalid arguments
 
 
 
