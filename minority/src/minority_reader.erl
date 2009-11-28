@@ -3,7 +3,10 @@
 -export([start_link/0]).
 -export([init/1]).
 
--record(v1, {sock, callback, recv_ref, connection_state}).
+-record(command,{opcode,data_id_len,data_num_id_len,body_len,data_id,data_num_id,body}).
+-record(v1, {sock, callback, recv_ref, connection_state,current_cmd}).
+
+-define(HEADER_LEN,16).
 
 start_link() ->
     {ok, proc_lib:spawn_link(?MODULE, init, [self()])}.
@@ -32,12 +35,13 @@ start_connection(Parent, Deb, ClientSock) ->
     try 
         app_log:info("starting TCP connection ~p from ~s:~p~n",
                         [self(), PeerAddressS, PeerPort]),
+        %Ready to read 12-bytes header
         mainloop(Parent, Deb, switch_callback(
                                 #v1{sock = ClientSock,
                                     callback = uninitialized_callback,
                                     recv_ref = none,
                                     connection_state = pre_init},
-                                header, 8))
+                                header, ?HEADER_LEN))
     catch
         Ex -> (if Ex == connection_closed_abruptly ->
                        fun app_log:warning/2;
@@ -61,7 +65,7 @@ switch_callback(OldState, NewCallback, Length) ->
 mainloop(Parent, Deb, State = #v1{sock= Sock, recv_ref = Ref}) ->
     receive
         {inet_async, Sock, Ref, {ok, Data}} ->
-            {State1, Callback1, Length1} =
+             {State1, Callback1, Length1} =
                 handle_input(State#v1.callback, Data,
                              State#v1{recv_ref = none}),
             mainloop(Parent, Deb,
@@ -90,9 +94,27 @@ mainloop(Parent, Deb, State = #v1{sock= Sock, recv_ref = Ref}) ->
             exit({unexpected_message, Other})
     end.
 
-handle_input(header,<<0x80,>>,State = #v1{sock = Sock}) ->
-    ok=tcp_send(Sock,Data),
-    {State,heartbeat,8}.
+handle_input(header,<<16#80:8,OpCode:8,DataIdLen:16,DataNumIdLen:16,_Reserved1:16,_Reserved2:32,TotalBodyLen:32>>,
+                   State) ->
+    BodyLen=TotalBodyLen-DataIdLen-DataNumIdLen,
+    Cmd=#command{opcode=OpCode,data_id_len=DataIdLen,data_num_id_len=DataNumIdLen,body_len=BodyLen},
+    {State#v1{current_cmd=Cmd},body,TotalBodyLen};
+handle_input(body, Data, State=#v1{current_cmd=#command{data_id_len=DataIdLen,data_num_id_len=DataNumIdLen,body_len=BodyLen}} )-> 
+    <<DataId:DataIdLen/binary,DataNumId:DataNumIdLen/binary,Body:BodyLen/binary>> = Data,
+    Cmd=State#v1.current_cmd,
+    {ok,Response}=handle_msg(Cmd#command{data_id=DataId,data_num_id=DataNumId,body=Body}),
+    {State#v1{current_cmd=none},header,?HEADER_LEN};
+handle_input(CallBack,Data,State) ->
+    exit({CallBack,Data}).
+
+
+handle_msg(#command{opcode=OpCode,data_id= DataId,data_num_id= DataNumId,body=Body})->
+    case OpCode of
+       16#00 ->
+            io:format("store ~p ~p value:~p ~n",[binary_to_list(DataId),binary_to_list(DataNumId),Body]),
+	    {ok,response};
+       16#01 ->
+    end.
 
 handle_dependent_exit(Pid, Reason, State)->
     ok.
