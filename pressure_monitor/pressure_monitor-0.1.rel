@@ -1,0 +1,6 @@
+{release, {"Pressure monitor app release", "0.1"}, {erts, "5.7.1"},
+   [{kernel, "2.13.1"},
+    {stdlib, "1.16.1"},
+    {sasl, "2.1.6"},
+    {pressure_monitor, "0.1"}
+   ]}.

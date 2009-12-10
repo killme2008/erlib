@@ -1,0 +1,8 @@
+-module(storel).
+-vsn('0.1').
+-author("dennis (killme2008@gmail.com)").
+
+
+new(File)->
+    .
+
